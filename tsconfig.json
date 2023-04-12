@@ -6,7 +6,7 @@
       "node"
     ],
     "target": "esnext",
-    "sourceMap": true,
+    "sourceMap": false,
     "allowJs": true,
     "noImplicitAny": false,
     "moduleResolution": "node",

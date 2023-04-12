@@ -15,10 +15,19 @@ let isBeforeJoinIrcChannel = true;
 // gqlにはcookieのauth-tokenが必要
 const main = async () => {
   console.log(config);
+  if (!config.twitch.broadcasterUsername || !config.twitch.moderatorUsername) {
+    throw new Error('Invalid Config Error.');
+  }
 
   checkOAuthToken();
+  while (!oauthAccessToken) {
+    console.log(`waiting oauth access token. Please write down to ${FILENAME.OAUTH_TOKEN}.`);
+    await sleep(5000);
+  }
   await connectEventWs();
 };
+
+const sleep = (msec) => new Promise((resolve) => setTimeout(resolve, msec));
 
 const connectEventWs = async () => {
   console.log('[connectEventWs] start');

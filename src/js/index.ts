@@ -44,7 +44,7 @@ const connectEventWs = async () => {
   });
 
   ws.on('message', (messageBuf, isBinary) => {
-    console.log('[ws] message received');
+    // console.log('[ws] message received');
 
     try {
       const message = messageBuf.toString();
@@ -76,7 +76,7 @@ const messageHandler = async (message: string) => {
   const list = message.split(';');
   const target_user_id = list.find((item) => item.includes('target-user-id'))?.split('=')[1];
   const target_user_login = (list[list.length - 1].match(new RegExp(`#${config.twitch.broadcasterUsername}.*`)) as any)[0].split(':')[1];
-  console.log(`[ws][BanEvent] user_id=${target_user_id} user_name=${target_user_login}`);
+  // console.log(`[ws][BanEvent] user_id=${target_user_id} user_name=${target_user_login}`);
 
   // BANされたユーザの情報を取得する
   const gqbody = [

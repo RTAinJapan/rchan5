@@ -39,7 +39,7 @@ const connectEventWs = async () => {
         ws.send(`USER ${config.twitch.moderatorUsername} 8 * :${config.twitch.moderatorUsername}`);
     });
     ws.on('message', (messageBuf, isBinary) => {
-        console.log('[ws] message received');
+        // console.log('[ws] message received');
         try {
             const message = messageBuf.toString();
             if (message.includes('PING :tmi.twitch.tv')) {
@@ -69,7 +69,7 @@ const messageHandler = async (message) => {
     const list = message.split(';');
     const target_user_id = list.find((item) => item.includes('target-user-id'))?.split('=')[1];
     const target_user_login = list[list.length - 1].match(new RegExp(`#${config.twitch.broadcasterUsername}.*`))[0].split(':')[1];
-    console.log(`[ws][BanEvent] user_id=${target_user_id} user_name=${target_user_login}`);
+    // console.log(`[ws][BanEvent] user_id=${target_user_id} user_name=${target_user_login}`);
     // BANされたユーザの情報を取得する
     const gqbody = [
         {

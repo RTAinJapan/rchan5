@@ -1,0 +1,12 @@
+.vscode
+config
+data
+node_modules
+npm-debug.log
+.eslintrc.json
+.gitignore
+.gitkeep
+.prettierrc
+yarn.lock
+*.csv
+*.txt

@@ -12,6 +12,8 @@ const FILENAME = {
 let oauthAccessToken = '';
 let isBeforeJoinIrcChannel = true;
 
+const InvalidTokens: string[] = [];
+
 // gqlにはcookieのauth-tokenが必要
 const main = async () => {
   console.log(config);
@@ -20,10 +22,6 @@ const main = async () => {
   }
 
   checkOAuthToken();
-  while (!oauthAccessToken) {
-    console.log(`waiting oauth access token. Please write down to ${FILENAME.OAUTH_TOKEN}.`);
-    await sleep(5000);
-  }
   await connectEventWs();
 };
 
@@ -32,6 +30,13 @@ const sleep = (msec) => new Promise((resolve) => setTimeout(resolve, msec));
 const connectEventWs = async () => {
   console.log('[connectEventWs] start');
   const url = 'wss://irc-ws.chat.twitch.tv/';
+
+  // トークンが無い、または無効なトークンがセットされている
+  while (!oauthAccessToken || InvalidTokens.includes(oauthAccessToken)) {
+    console.log(`waiting oauth access token. Please write down to ${FILENAME.OAUTH_TOKEN}.`);
+    await sleep(5000);
+  }
+
   const ws = new WebSocket(url);
 
   ws.on('open', () => {
@@ -48,10 +53,20 @@ const connectEventWs = async () => {
 
     try {
       const message = messageBuf.toString();
+      // console.log(message);
+
       if (message.includes('PING :tmi.twitch.tv')) {
         console.log('[ws] send PONG');
         ws.send('PONG');
         return;
+      }
+
+      if (message.includes('Login authentication failed')) {
+        InvalidTokens.push(oauthAccessToken);
+        console.error(`有効なトークンを配置してください。10秒後にリトライします。 message=${message}`);
+        sleep(10000).then(() => {
+          ws.close();
+        });
       }
 
       if (isBeforeJoinIrcChannel && message.includes(`tmi.twitch.tv 001 ${config.twitch.moderatorUsername}`)) {
@@ -65,6 +80,10 @@ const connectEventWs = async () => {
     } catch (e) {
       console.error(e);
     }
+  });
+
+  ws.on('close', () => {
+    connectEventWs();
   });
 };
 

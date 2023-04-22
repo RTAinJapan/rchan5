@@ -114,7 +114,10 @@ const messageHandler = async (message: string) => {
     },
   ];
   const graphqlResponse = await postGraphQl(gqbody);
-  if (!graphqlResponse) return;
+  if (!graphqlResponse) {
+    console.warn(`${target_user_id} - ${target_user_login}のgraphqlの取得に失敗`);
+    return;
+  }
 
   const edges = graphqlResponse[0].data.channel.modLogs.messagesBySender.edges;
   let banObj: ModLogsTargetedModActionsEntry | null = null;
@@ -138,7 +141,10 @@ const messageHandler = async (message: string) => {
       }
     }
   }
-  if (!banObj || !msgObj) return;
+  if (!banObj || !msgObj) {
+    console.warn(`${target_user_id} - ${target_user_login}にメッセージ情報が無い. banObj=${JSON.stringify(banObj)} msgObj=${JSON.stringify(msgObj)}`);
+    return;
+  }
 
   // ファイル出力
   const data = `"${banObj.timestamp}","${banObj.target.login}","${banObj.action}","${banObj.details.durationSeconds ? banObj.details.durationSeconds : ''}","${msgObj.sentAt}","${msgObj.content.text.replace(/"/g, '""')}","${banObj.user ? banObj.user.login : ''}"`;

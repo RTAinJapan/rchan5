@@ -83,28 +83,16 @@ const messageHandler = async (message) => {
     const target_user_id = list.find((item) => item.includes('target-user-id'))?.split('=')[1];
     const target_user_login = list[list.length - 1].match(new RegExp(`#${config.twitch.broadcasterUsername}.*`))[0].split(':')[1];
     // console.log(`[ws][BanEvent] user_id=${target_user_id} user_name=${target_user_login}`);
+    if (!target_user_id) {
+        console.warn(`${target_user_login}のID取得に失敗`);
+        return;
+    }
     // BANされたユーザの情報を取得する
-    const gqbody = [
-        {
-            operationName: 'ViewerCardModLogsMessagesBySender',
-            variables: {
-                senderID: `${target_user_id}`,
-                channelLogin: config.twitch.broadcasterUsername,
-            },
-            extensions: {
-                persistedQuery: {
-                    version: 1,
-                    sha256Hash: '437f209626e6536555a08930f910274528a8dea7e6ccfbef0ce76d6721c5d0e7', // このクエリで固定値
-                },
-            },
-        },
-    ];
-    const graphqlResponse = await postGraphQl(gqbody);
-    if (!graphqlResponse) {
+    const edges = await viewerCardModLogsMessagesBySender(target_user_id);
+    if (!edges) {
         console.warn(`${target_user_id} - ${target_user_login}のgraphqlの取得に失敗`);
         return;
     }
-    const edges = graphqlResponse[0].data.channel.modLogs.messagesBySender.edges;
     let banObj = null;
     let msgObj = null;
     let isContinue = true;
@@ -137,6 +125,27 @@ const messageHandler = async (message) => {
     fs_1.default.appendFile(FILENAME.BAN_LOG, `${data}\n`, (e) => {
         //
     });
+};
+const viewerCardModLogsMessagesBySender = async (target_user_id) => {
+    const body = [
+        {
+            operationName: 'ViewerCardModLogsMessagesBySender',
+            variables: {
+                senderID: `${target_user_id}`,
+                channelLogin: config.twitch.broadcasterUsername,
+            },
+            extensions: {
+                persistedQuery: {
+                    version: 1,
+                    sha256Hash: '437f209626e6536555a08930f910274528a8dea7e6ccfbef0ce76d6721c5d0e7', // このクエリで固定値
+                },
+            },
+        },
+    ];
+    const response = await postGraphQl(body);
+    if (!response)
+        return null;
+    return response[0].data.channel.modLogs.messagesBySender.edges;
 };
 const postGraphQl = async (body) => {
     try {

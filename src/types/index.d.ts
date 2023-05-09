@@ -84,3 +84,44 @@ type ModLogsTargetedModActionsEntry = {
   };
   __typename: 'ModLogsTargetedModActionsEntry';
 };
+
+type GetUserID = {
+  data: {
+    user: {
+      id: string;
+      __typename: 'User';
+    };
+  };
+  extensions: {
+    durationMilliseconds: number;
+    operationName: 'GetUserID';
+    requestID: string;
+  };
+};
+
+type ViewerCardModLogsMessagesBySender = {
+  data: {
+    channel: {
+      id: string;
+      modLogs: {
+        messagesBySender: {
+          edges: {
+            node: ModLogsMessage | ModLogsTargetedModActionsEntry;
+          }[];
+          pageInfo: {
+            hasNextPage: boolean;
+            __typename: 'PageInfo';
+          };
+          __typename: 'ModLogsMessageConnection';
+        };
+        __typename: 'ModLogs';
+      };
+      __typename: 'User';
+    };
+  };
+  extensions: {
+    durationMilliseconds: number;
+    operationName: 'ViewerCardModLogsMessagesBySender';
+    requestID: string;
+  };
+};

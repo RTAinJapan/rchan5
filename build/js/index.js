@@ -76,8 +76,14 @@ const connectEventWs = async () => {
 };
 const messageHandler = async (message) => {
     // console.log(message);
-    if (!message.includes('CLEARCHAT'))
+    // 10秒禁止
+    // @ban-duration=10;room-id=43594253;target-user-id=19264788;tmi-sent-ts=1691639507335 :tmi.twitch.tv CLEARCHAT #pastan04 :nightbot
+    // BAN
+    // @room-id=43594253;target-user-id=19264788;tmi-sent-ts=1691639802554 :tmi.twitch.tv CLEARCHAT #pastan04 :nightbot
+    if (!message.includes('CLEARCHAT')) {
+        // console.log(message);
         return;
+    }
     // 現状CLEARCHATの処理が起きるのがBanイベントの時っぽいので、その時の情報を使う
     const list = message.split(';');
     const target_user_id = list.find((item) => item.includes('target-user-id'))?.split('=')[1];
@@ -88,7 +94,7 @@ const messageHandler = async (message) => {
         return;
     }
     // BANされたユーザの情報を取得する
-    const edges = await viewerCardModLogsMessagesBySender(target_user_id);
+    const edges = await viewerCardModLogsMessagesBySender(target_user_id, config.twitch.broadcasterUserId);
     if (!edges) {
         console.warn(`${target_user_id} - ${target_user_login}のgraphqlの取得に失敗`);
         return;
@@ -100,14 +106,14 @@ const messageHandler = async (message) => {
         if (!isContinue)
             continue;
         switch (edge.node.__typename) {
-            case 'ModLogsMessage': {
+            case 'ViewerCardModLogsChatMessage': {
                 if (banObj && isContinue) {
                     msgObj = edge.node;
                     isContinue = false;
                 }
                 break;
             }
-            case 'ModLogsTargetedModActionsEntry': {
+            case 'ViewerCardModLogsModActionsMessage': {
                 if (!banObj) {
                     banObj = edge.node;
                 }
@@ -120,24 +126,28 @@ const messageHandler = async (message) => {
         return;
     }
     // ファイル出力
-    const data = `"${banObj.timestamp}","${banObj.target.login}","${banObj.action}","${banObj.details.durationSeconds ? banObj.details.durationSeconds : ''}","${msgObj.sentAt}","${msgObj.content.text.replace(/"/g, '""')}","${banObj.user ? banObj.user.login : ''}"`;
+    const banAction = banObj.content.fallbackString;
+    const banSec = banAction.includes('追放') ? '-' : banObj.content.localizedStringFragments[4].token.text;
+    const modName = banObj.content.localizedStringFragments[0].token.displayName;
+    const data = `"${banObj.timestamp}","${target_user_login}","${banAction}","${banSec}","${msgObj.sentAt}","${msgObj.content.text.replace(/"/g, '""')}","${modName}"`;
     console.log(data);
     fs_1.default.appendFile(FILENAME.BAN_LOG, `${data}\n`, (e) => {
         //
     });
 };
-const viewerCardModLogsMessagesBySender = async (target_user_id) => {
+const viewerCardModLogsMessagesBySender = async (target_user_id, channelId) => {
     const body = [
         {
             operationName: 'ViewerCardModLogsMessagesBySender',
             variables: {
                 senderID: `${target_user_id}`,
-                channelLogin: config.twitch.broadcasterUsername,
+                channelID: channelId,
+                // channelLogin: config.twitch.broadcasterUsername,
             },
             extensions: {
                 persistedQuery: {
                     version: 1,
-                    sha256Hash: '437f209626e6536555a08930f910274528a8dea7e6ccfbef0ce76d6721c5d0e7', // このクエリで固定値
+                    sha256Hash: 'c634d7fadf4453103f4047a102ca2c4b0da4ada0330741bd80ae527c2c958513', // このクエリで固定値
                 },
             },
         },
@@ -145,7 +155,11 @@ const viewerCardModLogsMessagesBySender = async (target_user_id) => {
     const response = await postGraphQl(body);
     if (!response)
         return null;
-    return response[0].data.channel.modLogs.messagesBySender.edges;
+    if (!response[0].data) {
+        console.warn(JSON.stringify(response));
+        return null;
+    }
+    return response[0].data.viewerCardModLogs.messages.edges;
 };
 const postGraphQl = async (body) => {
     try {

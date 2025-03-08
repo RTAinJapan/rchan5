@@ -1,22 +1,17 @@
 # Rちゃん5号
 
-TwitchチャットのBAN記録を取るよ
+Twitch チャットの BAN 記録を取るよ
 
 ## config
-- config/default.json
 
 ```json
-{
-  "twitch": {
-    "broadcasterUsername": "配信者のusername",
-    "moderatorUsername": "このツールを動かす自分のusername"
-  }
-}
+BROADCASTTER_USERNAME=配信者のusername
+MODERATOR_USERNAME=このツールを動かす自分のusername
 ```
 
 - data/oauthtoken.txt
-  - ログイン中のユーザのCookieからauth-tokenを記載
-  - moderatorUsernameと対応が取れてること
+  - ログイン中のユーザの Cookie から auth-token を記載
+  - moderatorUsername と対応が取れてること
 
 ## 実行
 
@@ -27,14 +22,15 @@ npm run start
 ## 出力ファイル
 
 - data/banlog.csv
-  - BANやTIMEOUTを食らった時の状況のCSV
 
-  | 項目 |
-  |--- |
-  | BAN実行時のtimestamp |
-  | BANされたusername |
-  | タイムアウトかBANか |
-  | タイムアウトの秒数 |
-  | 直前のメッセージ送信のtimestamp |
-  | 直前のメッセージ |
-  | BANを実行したモデレーターのusername |
+  - BAN や TIMEOUT を食らった時の状況の CSV
+
+  | 項目                                  |
+  | ------------------------------------- |
+  | BAN 実行時の timestamp                |
+  | BAN された username                   |
+  | タイムアウトか BAN か                 |
+  | タイムアウトの秒数                    |
+  | 直前のメッセージ送信の timestamp      |
+  | 直前のメッセージ                      |
+  | BAN を実行したモデレーターの username |

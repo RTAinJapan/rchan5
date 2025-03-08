@@ -1,8 +1,7 @@
 import axios from 'axios';
 import WebSocket from 'ws';
 import fs from 'fs';
-import configModule from 'config';
-const config: Config = configModule.util.toObject(configModule);
+import config from './config';
 
 const FILENAME = {
   OAUTH_TOKEN: 'data/oauthtoken.txt',
@@ -16,11 +15,6 @@ const InvalidTokens: string[] = [];
 
 // gqlにはcookieのauth-tokenが必要
 const main = async () => {
-  console.log(config);
-  if (!config.twitch.broadcasterUsername || !config.twitch.moderatorUsername) {
-    throw new Error('Invalid Config Error.');
-  }
-
   checkOAuthToken();
   await connectEventWs();
 };
@@ -44,8 +38,8 @@ const connectEventWs = async () => {
     // サーバ入室初期処理
     ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
     ws.send(`PASS oauth:${oauthAccessToken}`);
-    ws.send(`NICK ${config.twitch.moderatorUsername}`);
-    ws.send(`USER ${config.twitch.moderatorUsername} 8 * :${config.twitch.moderatorUsername}`);
+    ws.send(`NICK ${config.moderatorUsername}`);
+    ws.send(`USER ${config.moderatorUsername} 8 * :${config.moderatorUsername}`);
   });
 
   ws.on('message', (messageBuf, isBinary) => {
@@ -69,9 +63,9 @@ const connectEventWs = async () => {
         });
       }
 
-      if (isBeforeJoinIrcChannel && message.includes(`tmi.twitch.tv 001 ${config.twitch.moderatorUsername}`)) {
+      if (isBeforeJoinIrcChannel && message.includes(`tmi.twitch.tv 001 ${config.moderatorUsername}`)) {
         // チャンネル入室
-        ws.send(`JOIN #${config.twitch.broadcasterUsername}`);
+        ws.send(`JOIN #${config.broadcasterUsername}`);
         isBeforeJoinIrcChannel = false;
         console.log('[ws] channel joined');
         return;
@@ -94,7 +88,7 @@ const messageHandler = async (message: string) => {
 
   const list = message.split(';');
   const target_user_id = list.find((item) => item.includes('target-user-id'))?.split('=')[1];
-  const target_user_login = (list[list.length - 1].match(new RegExp(`#${config.twitch.broadcasterUsername}.*`)) as any)[0].split(':')[1];
+  const target_user_login = (list[list.length - 1].match(new RegExp(`#${config.broadcasterUsername}.*`)) as any)[0].split(':')[1];
   // console.log(`[ws][BanEvent] user_id=${target_user_id} user_name=${target_user_login}`);
   if (!target_user_id) {
     console.warn(`${target_user_login}のID取得に失敗`);
@@ -148,7 +142,7 @@ const viewerCardModLogsMessagesBySender = async (target_user_id: string) => {
       operationName: 'ViewerCardModLogsMessagesBySender',
       variables: {
         senderID: `${target_user_id}`, // 取得対象のユーザID(数字)
-        channelLogin: config.twitch.broadcasterUsername,
+        channelLogin: config.broadcasterUsername,
       },
       extensions: {
         persistedQuery: {

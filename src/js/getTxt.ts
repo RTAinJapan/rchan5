@@ -1,7 +1,6 @@
 import axios from 'axios';
 import fs from 'fs';
-import configModule from 'config';
-const config: Config = configModule.util.toObject(configModule);
+import config from './config';
 
 const FILENAME = {
   OAUTH_TOKEN: 'data/oauthtoken.txt',
@@ -14,10 +13,6 @@ const userlist = [];
 
 // gqlにはcookieのauth-tokenが必要
 const main = async () => {
-  console.log(config);
-  if (!config.twitch.broadcasterUsername || !config.twitch.moderatorUsername) {
-    throw new Error('Invalid Config Error.');
-  }
   checkOAuthToken();
 
   for (const username of userlist) {
@@ -65,7 +60,7 @@ const viewerCardModLogsMessagesBySender = async (target_user_id: string, cursor?
       operationName: 'ViewerCardModLogsMessagesBySender',
       variables: {
         senderID: `${target_user_id}`, // 取得対象のユーザID(数字)
-        channelLogin: config.twitch.broadcasterUsername,
+        channelLogin: config.broadcasterUsername,
         cursor: cursor,
       },
       extensions: {

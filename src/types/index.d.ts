@@ -1,15 +1,13 @@
 type Config = {
-  twitch: {
-    /**
-     * モデレーションしてるチャンネルのusername
-     * @example "rtainjapan"
-     */
-    broadcasterUsername: string;
-    /**
-     * モデレーター自身のusername。このユーザのoauthtokenが別途要る
-     */
-    moderatorUsername: string;
-  };
+  /**
+   * モデレーションしてるチャンネルのusername
+   * @example "rtainjapan"
+   */
+  broadcasterUsername: string;
+  /**
+   * モデレーター自身のusername。このユーザのoauthtokenが別途要る
+   */
+  moderatorUsername: string;
 };
 type PromiseType<T extends PromiseLike<any>> = T extends PromiseLike<infer P> ? P : never;
 
@@ -26,7 +24,7 @@ type ModLogsMessage = {
         text: string;
         content: null;
         __typename: 'ModLogsMessageFragment';
-      }
+      },
     ];
     __typename: 'ModLogsMessageContent';
   };

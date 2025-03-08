@@ -5,8 +5,8 @@
     "types": [
       "node"
     ],
-    "target": "esnext",
-    "sourceMap": false,
+    "target": "es2020",
+    "sourceMap": true,
     "allowJs": true,
     "noImplicitAny": false,
     "moduleResolution": "node",
@@ -14,7 +14,7 @@
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
     "strict": true,
-    "importHelpers": true,
+    "importHelpers": false,
     "typeRoots": [
       "src/types",
       "node_modules/@types"

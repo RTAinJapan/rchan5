@@ -4,7 +4,7 @@ Twitch チャットの BAN 記録を取るよ
 
 ## config
 
-```json
+```
 BROADCASTTER_USERNAME=配信者のusername
 MODERATOR_USERNAME=このツールを動かす自分のusername
 TWITCH_CLIENT_ID=Client ID

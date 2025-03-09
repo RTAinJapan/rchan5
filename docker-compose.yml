@@ -7,6 +7,39 @@ services:
     environment:
       - BROADCASTTER_USERNAME=
       - MODERATOR_USERNAME=
+      - TWITCH_CLIENT_ID=
+      - TWITCH_CLIENT_SECRET=
+      - TWITCH_INIT_ACCESS_TOKEN=
+      - TWITCH_INIT_REFRESH_TOKEN=
+      - TWITCH_MODERATE_LOG_POSTGREST=
     volumes:
       - ./data:/usr/src/app/data
     restart: always
+
+  postgres:
+    image: postgres:17
+    container_name: postgres
+    restart: always
+    ports: 
+      - "5432:5432"
+    volumes:
+      - ../sql:/docker-entrypoint-initdb.d
+      # - postgres_volume:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+
+  db:
+    image: postgrest/postgrest
+    container_name: db
+    ports:
+     - "9000:3000"
+    environment:
+      PGRST_DB_URI: "postgres://postgres:postgres@postgres:5432/postgres"
+      PGRST_DB_SCHEMA: public
+      PGRST_DB_ANON_ROLE: "postgres"
+    depends_on:
+      - postgres
+
+# volumes:
+#   postgres_volume:

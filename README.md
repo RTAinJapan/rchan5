@@ -7,11 +7,16 @@ Twitch チャットの BAN 記録を取るよ
 ```json
 BROADCASTTER_USERNAME=配信者のusername
 MODERATOR_USERNAME=このツールを動かす自分のusername
+TWITCH_CLIENT_ID=Client ID
+TWITCH_CLIENT_SECRET=Client Secret
+TWITCH_INIT_ACCESS_TOKEN=User Access Token
+TWITCH_INIT_REFRESH_TOKEN=User Refresh Token
+TWITCH_MODERATE_LOG_POSTGREST=PostgREST Endpoint URL
 ```
 
-- data/oauthtoken.txt
-  - ログイン中のユーザの Cookie から auth-token を記載
-  - moderatorUsername と対応が取れてること
+- INIT系トークンについて
+  - `GET https://id.twitch.tv/oauth2/authorize?xxxx` でブラウザ経由で認証
+  - `POST https://id.twitch.tv/oauth2/token?client_id=xxxx&xxx...` でAPI経由で初期値のトークンを取得。以降はリフレッシュされる。
 
 ## 実行
 
@@ -19,18 +24,6 @@ MODERATOR_USERNAME=このツールを動かす自分のusername
 npm run start
 ```
 
-## 出力ファイル
+## 記録内容
 
-- data/banlog.csv
-
-  - BAN や TIMEOUT を食らった時の状況の CSV
-
-  | 項目                                  |
-  | ------------------------------------- |
-  | BAN 実行時の timestamp                |
-  | BAN された username                   |
-  | タイムアウトか BAN か                 |
-  | タイムアウトの秒数                    |
-  | 直前のメッセージ送信の timestamp      |
-  | 直前のメッセージ                      |
-  | BAN を実行したモデレーターの username |
+- PostgREST経由でDBに登録。スキーマはSQL参照。

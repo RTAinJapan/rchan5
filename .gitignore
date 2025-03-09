@@ -67,3 +67,5 @@ typings/
 config/development.json
 config/development2.json
 config/production.json
+docker-compose_prod.yml
+tokens.json

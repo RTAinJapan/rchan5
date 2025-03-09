@@ -1,4 +1,10 @@
 type Config = {
+  clientId: string;
+  clientSecret: string;
+  twitchInitAccessToken: string;
+  twitchInitRefreshToken: string;
+  moderateLogEndpoint: string;
+
   /**
    * モデレーションしてるチャンネルのusername
    * @example "rtainjapan"
@@ -10,116 +16,3 @@ type Config = {
   moderatorUsername: string;
 };
 type PromiseType<T extends PromiseLike<any>> = T extends PromiseLike<infer P> ? P : never;
-
-type ModLogsMessage = {
-  id: string;
-  /** @example '2023-04-12T15:04:21.596582669Z' */
-  sentAt: string;
-  content: {
-    /** @example 'わぁいわぁい' */
-    text: string;
-    fragments: [
-      {
-        /** @example 'わぁいわぁい' */
-        text: string;
-        content: null;
-        __typename: 'ModLogsMessageFragment';
-      },
-    ];
-    __typename: 'ModLogsMessageContent';
-  };
-  sender: {
-    /** @example '1234567 */
-    id: string;
-    /** @example 'username */
-    login: string;
-    chatColor: null;
-    /** @example 'DisplayName' */
-    displayName: string;
-    displayBadges: any[];
-    __typename: 'User';
-  };
-  __typename: 'ModLogsMessage';
-};
-
-type ModLogsTargetedModActionsEntry = {
-  id: string;
-  action: 'TIMEOUT_USER' | 'BAN_USER';
-  /** @example '2023-04-12T15:04:29.691361448Z' */
-  timestamp: string;
-  channel: {
-    /** @example '123456' */
-    id: string;
-    /** @example 'username' */
-    login: string;
-    __typename: 'User';
-  };
-  /** BANされた人 */
-  target: {
-    /** @example '123456' */
-    id: string;
-    /** @example 'username' */
-    login: string;
-    __typename: 'User';
-  };
-  /** BANを実行したモデレーター。BANされた当人は誰にBANされたかわからないようにnullになる */
-  user: {
-    /** @example '123456' */
-    id: string;
-    /** @example 'username' */
-    login: string;
-    __typename: 'User';
-  } | null;
-  details: {
-    /** @example '2023-04-12T15:04:29.691361448Z' */
-    bannedAt: string;
-    /** 追放の時はnull */
-    durationSeconds: number | null;
-    /** @example '2023-04-12T15:14:29.691361448Z' */
-    expiresAt: string | null;
-    reason: string | null;
-    __typename: 'TargetedModActionDetails';
-  };
-  __typename: 'ModLogsTargetedModActionsEntry';
-};
-
-type GetUserID = {
-  data: {
-    user: {
-      id: string;
-      __typename: 'User';
-    };
-  };
-  extensions: {
-    durationMilliseconds: number;
-    operationName: 'GetUserID';
-    requestID: string;
-  };
-};
-
-type ViewerCardModLogsMessagesBySender = {
-  data: {
-    channel: {
-      id: string;
-      modLogs: {
-        messagesBySender: {
-          edges: {
-            node: ModLogsMessage | ModLogsTargetedModActionsEntry;
-          }[];
-          pageInfo: {
-            hasNextPage: boolean;
-            __typename: 'PageInfo';
-          };
-          __typename: 'ModLogsMessageConnection';
-        };
-        __typename: 'ModLogs';
-      };
-      __typename: 'User';
-    };
-  };
-  extensions: {
-    durationMilliseconds: number;
-    operationName: 'ViewerCardModLogsMessagesBySender';
-    requestID: string;
-  };
-};

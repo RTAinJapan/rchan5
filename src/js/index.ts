@@ -1,208 +1,107 @@
-import axios from 'axios';
-import WebSocket from 'ws';
+import { RefreshingAuthProvider } from '@twurple/auth';
+import { ApiClient } from '@twurple/api';
+import { EventSubWsListener } from '@twurple/eventsub-ws';
 import fs from 'fs';
+import { rawDataSymbol } from '@twurple/common';
+import axios from 'axios';
 import config from './config';
 
-const FILENAME = {
-  OAUTH_TOKEN: 'data/oauthtoken.txt',
-  BAN_LOG: 'data/banlog.csv',
-};
-
-let oauthAccessToken = '';
-let isBeforeJoinIrcChannel = true;
-
-const InvalidTokens: string[] = [];
-
-// gqlにはcookieのauth-tokenが必要
 const main = async () => {
-  checkOAuthToken();
-  await connectEventWs();
-};
+  /** userIdごとに最新1個のチャットだけ保持する */
+  const chatLog = new Map<string, string>();
 
-const sleep = (msec) => new Promise((resolve) => setTimeout(resolve, msec));
-
-const connectEventWs = async () => {
-  console.log('[connectEventWs] start');
-  const url = 'wss://irc-ws.chat.twitch.tv/';
-
-  // トークンが無い、または無効なトークンがセットされている
-  while (!oauthAccessToken || InvalidTokens.includes(oauthAccessToken)) {
-    console.log(`waiting oauth access token. Please write down to ${FILENAME.OAUTH_TOKEN}.`);
-    await sleep(5000);
-  }
-
-  const ws = new WebSocket(url);
-
-  ws.on('open', () => {
-    console.log('twitch irc WebSocket connected');
-    // サーバ入室初期処理
-    ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
-    ws.send(`PASS oauth:${oauthAccessToken}`);
-    ws.send(`NICK ${config.moderatorUsername}`);
-    ws.send(`USER ${config.moderatorUsername} 8 * :${config.moderatorUsername}`);
-  });
-
-  ws.on('message', (messageBuf, isBinary) => {
-    // console.log('[ws] message received');
-
-    try {
-      const message = messageBuf.toString();
-      // console.log(message);
-
-      if (message.includes('PING :tmi.twitch.tv')) {
-        console.log('[ws] send PONG');
-        ws.send('PONG');
-        return;
-      }
-
-      if (message.includes('Login authentication failed')) {
-        InvalidTokens.push(oauthAccessToken);
-        console.error(`有効なトークンを配置してください。10秒後にリトライします。 message=${message}`);
-        sleep(10000).then(() => {
-          ws.close();
-        });
-      }
-
-      if (isBeforeJoinIrcChannel && message.includes(`tmi.twitch.tv 001 ${config.moderatorUsername}`)) {
-        // チャンネル入室
-        ws.send(`JOIN #${config.broadcasterUsername}`);
-        isBeforeJoinIrcChannel = false;
-        console.log('[ws] channel joined');
-        return;
-      }
-      messageHandler(message);
-    } catch (e) {
-      console.error(e);
-    }
-  });
-
-  ws.on('close', () => {
-    connectEventWs();
-  });
-};
-
-const messageHandler = async (message: string) => {
-  // console.log(message);
-  if (!message.includes('CLEARCHAT')) return;
-  // 現状CLEARCHATの処理が起きるのがBanイベントの時っぽいので、その時の情報を使う
-
-  const list = message.split(';');
-  const target_user_id = list.find((item) => item.includes('target-user-id'))?.split('=')[1];
-  const target_user_login = (list[list.length - 1].match(new RegExp(`#${config.broadcasterUsername}.*`)) as any)[0].split(':')[1];
-  // console.log(`[ws][BanEvent] user_id=${target_user_id} user_name=${target_user_login}`);
-  if (!target_user_id) {
-    console.warn(`${target_user_login}のID取得に失敗`);
-    return;
-  }
-
-  // BANされたユーザの情報を取得する
-  const edges = await viewerCardModLogsMessagesBySender(target_user_id);
-  if (!edges) {
-    console.warn(`${target_user_id} - ${target_user_login}のgraphqlの取得に失敗`);
-    return;
-  }
-
-  let banObj: ModLogsTargetedModActionsEntry | null = null;
-  let msgObj: ModLogsMessage | null = null;
-  let isContinue = true;
-  for (const edge of edges) {
-    if (!isContinue) continue;
-    switch (edge.node.__typename) {
-      case 'ModLogsMessage': {
-        if (banObj && isContinue) {
-          msgObj = edge.node;
-          isContinue = false;
-        }
-        break;
-      }
-      case 'ModLogsTargetedModActionsEntry': {
-        if (!banObj) {
-          banObj = edge.node;
-        }
-        break;
-      }
-    }
-  }
-  if (!banObj || !msgObj) {
-    console.warn(`${target_user_id} - ${target_user_login}にメッセージ情報が無い. banObj=${JSON.stringify(banObj)} msgObj=${JSON.stringify(msgObj)}`);
-    return;
-  }
-
-  // ファイル出力
-  const data = `"${banObj.timestamp}","${banObj.target.login}","${banObj.action}","${banObj.details.durationSeconds ? banObj.details.durationSeconds : ''}","${msgObj.sentAt}","${msgObj.content.text.replace(/"/g, '""')}","${banObj.user ? banObj.user.login : ''}"`;
-  console.log(data);
-  fs.appendFile(FILENAME.BAN_LOG, `${data}\n`, (e) => {
-    //
-  });
-};
-
-const viewerCardModLogsMessagesBySender = async (target_user_id: string) => {
-  const body = [
-    {
-      operationName: 'ViewerCardModLogsMessagesBySender',
-      variables: {
-        senderID: `${target_user_id}`, // 取得対象のユーザID(数字)
-        channelLogin: config.broadcasterUsername,
-      },
-      extensions: {
-        persistedQuery: {
-          version: 1,
-          sha256Hash: '437f209626e6536555a08930f910274528a8dea7e6ccfbef0ce76d6721c5d0e7', // このクエリで固定値
-        },
-      },
-    },
-  ];
-
-  const response: ViewerCardModLogsMessagesBySender[] = await postGraphQl(body);
-  if (!response) return null;
-  return response[0].data.channel.modLogs.messagesBySender.edges;
-};
-
-const postGraphQl = async (body: object) => {
-  try {
-    console.log('[postGraphQl] start');
-
-    if (!oauthAccessToken) return null;
-
-    const url = 'https://gql.twitch.tv/gql';
-    const options = {
-      headers: {
-        Authorization: `OAuth ${oauthAccessToken}`,
-        'Client-ID': 'kimne78kx3ncx6brgo4mv6wki5h1ko', // Twitchの固定値,
-        'Content-Type': 'application/json',
-      },
+  // リフレッシュトークン
+  const TOKEN_FILE = './data/tokens.json';
+  let tokenData: any = {};
+  if (fs.existsSync(TOKEN_FILE)) {
+    tokenData = JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf-8'));
+  } else {
+    tokenData = {
+      accessToken: config.twitchInitAccessToken,
+      refreshToken: config.twitchInitRefreshToken,
+      expiresIn: 12000,
+      obtainmentTimestamp: 0,
     };
-    // console.log(options);
-    const res = await axios.post(url, body, options);
-    return res.data;
-  } catch (e) {
-    console.log(e);
-    return null;
   }
-};
+  // console.log(tokenData);
 
-/**
- * data/oauthtoken.txtからOAuthトークンを取得する
- */
-const checkOAuthToken = () => {
-  try {
-    const filename = FILENAME.OAUTH_TOKEN;
-    const data = fs.readFileSync(filename);
-    const txt = data.toString();
-    if (txt) {
-      oauthAccessToken = txt.trim();
-    }
-  } catch (e) {
-    if (process.env.OAUTHTOKEN) {
-      oauthAccessToken = process.env.OAUTHTOKEN;
-    } else {
-      console.log('oauth token skip');
-    }
-  }
-};
+  const authProvider = new RefreshingAuthProvider({ clientId: config.clientId, clientSecret: config.clientSecret });
+  authProvider.onRefresh(async (userId, newTokenData) => fs.writeFileSync(TOKEN_FILE, JSON.stringify(newTokenData, null, 2)));
+  await authProvider.addUserForToken(tokenData);
 
-setInterval(async () => {
-  checkOAuthToken();
-}, 5000);
+  const apiClient = new ApiClient({ authProvider });
+
+  const listener = new EventSubWsListener({ apiClient });
+  listener.start();
+
+  const broadcaster = await apiClient.users.getUserByName(config.broadcasterUsername);
+  if (!broadcaster) throw new Error(`broadcaster ${config.broadcasterUsername} is not found`);
+
+  const moderator = await apiClient.users.getUserByName(config.moderatorUsername);
+  if (!moderator) throw new Error(`moderator ${config.moderatorUsername} is not found`);
+
+  // scope
+  // https://dev.twitch.tv/docs/authentication/scopes/
+
+  // broadcasterのチャット上でTimeoutやBANが発生したときのイベント
+  // /node_modules/@twurple/api/lib/endpoints/eventSub/HelixEventSubApi.jsで呼んでる
+  // https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/#channelmoderate
+  // v1からv2でscopeにmoderator:read:warningsが増えてるのに注意
+  listener.onChannelModerate(broadcaster.id, moderator.id, async (e) => {
+    console.log('-------------onChannelModerate----------------------');
+    const moderatorName = e.moderatorName;
+    const action = e.moderationAction;
+    const actionData = e[rawDataSymbol][action] ?? '';
+    let message: string = '';
+    if (actionData && actionData.user_id) {
+      const target_user_id = actionData.user_id as string;
+      // 最後のメッセージを取得
+      const temp = chatLog.get(target_user_id);
+      if (temp) {
+        message = temp;
+      }
+    }
+    console.log(`${moderatorName}\t${action}\t${message}\t${JSON.stringify(actionData)}`);
+
+    const body = {
+      moderator_name: moderatorName,
+      action: action,
+      last_message: message,
+      moderate_target: JSON.stringify(actionData),
+    };
+    await axios.post(`${config.moderateLogEndpoint}/moderate`, body);
+  });
+
+  // https://twurple.js.org/reference/eventsub-base/classes/EventSubChannelChatMessageEvent.html
+  listener.onChannelChatMessage(broadcaster.id, moderator.id, async (e) => {
+    // console.log('-------------onChannelChatMessage------------------');
+    // console.log(`[${e.chatterName}] [${e.chatterId}] [${e.messageType}] ${e.messageText}`);
+    if (e.messageType !== 'text') return;
+
+    const body = {
+      user_id: e.chatterId,
+      user_name: e.chatterName,
+      message_type: e.messageType,
+      message_text: e.messageText,
+    };
+    // await axios.post('http://db:3000/chat', body);
+    chatLog.set(e.chatterId, JSON.stringify(body));
+  });
+
+  // listener.onChannelChatNotification(broadcaster, userId, (e) => {
+  //   console.log('-------------onChannelChatNotification------------------');
+  //   console.log(e);
+  //   console.log(e.messageText);
+  // });
+
+  // https://twurple.js.org/reference/eventsub-base/classes/EventSubChannelChatClearUserMessagesEvent.html
+  // listener.onChannelChatClearUserMessages(broadcaster, userId, (e) => {
+  //   console.log('-------------onChannelChatClearUserMessages------------------');
+  //   console.log(e);
+  //   console.log(`broadcasterId=${e.broadcasterId} userId=${e.userId} username=${e.userName}`);
+  // });
+
+  console.log('listened...');
+};
 
 main();
